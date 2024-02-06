@@ -221,11 +221,11 @@ private:
 	}
 
 	bool isFreeSurface(const Particle& pi) {
-		double n0   = refValues.n0_forNumberDensity;
-		double beta = settings.surfaceDetectionRatio;
 		bool flag;
 
 		// original MPS
+		double n0   = refValues.n0_forNumberDensity;
+		double beta = settings.surfaceDetectionRatio;
 		if (pi.numberDensity < beta * n0) {
 			flag = true;
 		} else {
