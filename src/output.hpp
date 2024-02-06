@@ -36,7 +36,10 @@ void dataArrayEnd(std::ofstream& ofs) {
 	ofs << "</DataArray>" << std::endl;
 }
 
-void writeVtu(const std::stringstream& ss, const double& time, const std::vector<Particle> particles) {
+void writeVtu(const std::stringstream& ss,
+              const double& time,
+              const std::vector<Particle> particles,
+              const double& n0_forNumberDensity) {
 	std::ofstream ofs(ss.str());
 	if (ofs.fail()) {
 		std::cerr << "cannot write " << ss.str() << std::endl;
@@ -97,6 +100,16 @@ void writeVtu(const std::stringstream& ss, const double& time, const std::vector
 	dataArrayBegin(ofs, "1", "Float64", "Number Density");
 	for (auto& p : particles)
 		ofs << p.numberDensity << std::endl;
+	dataArrayEnd(ofs);
+
+	dataArrayBegin(ofs, "1", "Float64", "Number Density Ratio");
+	for (auto& p : particles)
+		ofs << p.numberDensity / n0_forNumberDensity << std::endl;
+	dataArrayEnd(ofs);
+
+	dataArrayBegin(ofs, "1", "Int32", "Boundary Condition");
+	for (auto& p : particles)
+		ofs << static_cast<int>(p.boundaryCondition) << std::endl;
 	dataArrayEnd(ofs);
 
 	ofs << "</PointData>" << std::endl;

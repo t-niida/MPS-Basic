@@ -3,12 +3,10 @@
 #include "bucket.hpp"
 #include "common.hpp"
 #include "domain.hpp"
-#include "loader.hpp"
 #include "output.hpp"
 #include "particle.hpp"
 #include "refvalues.hpp"
 #include "settings.hpp"
-#include "simulation.hpp"
 #include "system.hpp"
 #include "weight.hpp"
 #include <cmath>
@@ -141,10 +139,8 @@ private:
 			if (p.type == ParticleType::Fluid) {
 				p.velocity += p.acceleration * settings.dt;
 				p.position += p.velocity * settings.dt;
-
-			} else {
-				p.acceleration.setZero();
 			}
+			p.acceleration.setZero();
 		}
 	}
 
@@ -217,11 +213,44 @@ private:
 				pi.boundaryCondition = FluidState::Ignored;
 
 			} else if (pi.numberDensity < beta * n0) {
-				pi.boundaryCondition = FluidState::FreeSurface;
+				if (settings.freeSurfaceDetectionBasedOnParticleDistribution) {
+					if (isParticleDistributionBiased(pi)) {
+						pi.boundaryCondition = FluidState::FreeSurface;
+
+					} else {
+						pi.boundaryCondition = FluidState::Inner;
+					}
+
+				} else {
+					pi.boundaryCondition = FluidState::FreeSurface;
+				}
 
 			} else {
 				pi.boundaryCondition = FluidState::Inner;
 			}
+		}
+	}
+
+	bool isParticleDistributionBiased(const Particle& pi) {
+		Vector3d rij_sum = Vector3d::Zero();
+		for (auto& neighbor : pi.neighbors) {
+			auto& pj = particles[neighbor.id];
+
+			rij_sum += pj.position - pi.position;
+		}
+
+		double alpha = settings.freeSurfaceDetectionThresholdRatio;
+		if (abs(rij_sum.x()) > alpha * settings.particleDistance) {
+			return true;
+
+		} else if (abs(rij_sum.y()) > alpha * settings.particleDistance) {
+			return true;
+
+		} else if (abs(rij_sum.z()) > alpha * settings.particleDistance) {
+			return true;
+
+		} else {
+			return false;
 		}
 	}
 
@@ -366,7 +395,7 @@ private:
 	}
 
 	void calPressureGradient(const double& re) {
-		double a = settings.dim / refValues.n0_forGradient;
+		double n0 = refValues.n0_forGradient;
 
 #pragma omp parallel for
 		for (auto& pi : particles) {
@@ -380,14 +409,13 @@ private:
 					continue;
 
 				if (neighbor.distance < re) {
-					double w = weight(neighbor.distance, re);
-					// double dist2 = pow(neighbor.distance, 2);
-					double dist2 = (pj.position - pi.position).squaredNorm();
-					double pij   = (pj.pressure - pi.minimumPressure) / dist2;
-					grad += (pj.position - pi.position) * pij * w;
+					double w     = weight(neighbor.distance, re);
+					Vector3d rij = pj.position - pi.position;
+					double pij   = pj.pressure - pi.minimumPressure;
+					grad += pij * rij * w / pow(neighbor.distance, 2);
 				}
 			}
-			grad *= a;
+			grad *= settings.dim / n0;
 			pi.acceleration -= grad * pi.inverseDensity(settings.fluidDensity);
 		}
 	}
@@ -399,7 +427,6 @@ private:
 				p.velocity += p.acceleration * settings.dt;
 				p.position += p.acceleration * settings.dt * settings.dt;
 			}
-
 			p.acceleration.setZero();
 		}
 	}
@@ -454,7 +481,8 @@ private:
 		// fprintf(logFile,
 		//         "%d: dt=%gs   t=%.3lfs   fin=%.1lfs   %s   %s   ave=%.3lfs/step   "
 		//         "last=%.3lfs/step   out=%dfiles   Courant=%.2lf\n",
-		//         timestep, settings.dt, Time, settings.finishTime, elapsed, remain, ave, last, fileNumber, courant);
+		//         timestep, settings.dt, Time, settings.finishTime, elapsed, remain, ave, last, fileNumber,
+		//         courant);
 
 		// error output
 		fprintf(stderr, "%4d: t=%.3lfs\n", timestep, Time);
@@ -468,7 +496,7 @@ private:
 			ss.str("");
 			ss << "result/vtu/output_";
 			ss << std::setfill('0') << std::setw(4) << fileNumber << ".vtu";
-			writeVtu(ss, Time, particles);
+			writeVtu(ss, Time, particles, refValues.n0_forNumberDensity);
 
 			fileNumber++;
 		}

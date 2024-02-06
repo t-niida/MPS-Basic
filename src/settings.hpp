@@ -43,6 +43,13 @@ public:
 	double re_forLaplacian;
 	double reMax;
 
+	// accuracy enhancement
+	// Khayyer et al.（2009）
+	// when the particle distribution is biased in either direction, the particle is determined to be a free surface
+	// particle.
+	bool freeSurfaceDetectionBasedOnParticleDistribution;
+	double freeSurfaceDetectionThresholdRatio; // ratio to the initial particle distance
+
 	Settings() {
 	}
 

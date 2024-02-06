@@ -3,7 +3,7 @@ dim: 2
 particleDistance: 0.025
 dt: 0.001
 finishTime: 2.0
-outputPeriod: 0.04
+outputPeriod: 0.05
 cflCondition: 0.3
 numPhysicalCores: 4
 
@@ -36,3 +36,7 @@ radiusRatioForLaplacian: 3.1
 
 # profpath
 profPath: ./input/input.prof
+
+# accuracy enhancement
+freeSurfaceDetectionBasedOnParticleDistribution: false
+freeSurfaceDetectionThresholdRatio: 1.0
