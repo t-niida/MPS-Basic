@@ -204,31 +204,42 @@ private:
 	}
 
 	void setBoundaryCondition() {
-		double n0   = refValues.n0_forNumberDensity;
-		double beta = settings.surfaceDetectionRatio;
-
 #pragma omp parallel for
 		for (auto& pi : particles) {
 			if (pi.type == ParticleType::Ghost || pi.type == ParticleType::DummyWall) {
 				pi.boundaryCondition = FluidState::Ignored;
 
-			} else if (pi.numberDensity < beta * n0) {
-				if (settings.freeSurfaceDetectionBasedOnParticleDistribution) {
-					if (isParticleDistributionBiased(pi)) {
-						pi.boundaryCondition = FluidState::FreeSurface;
-
-					} else {
-						pi.boundaryCondition = FluidState::Inner;
-					}
+			} else { // fluid particles
+				if (isFreeSurface(pi)) {
+					pi.boundaryCondition = FluidState::FreeSurface;
 
 				} else {
-					pi.boundaryCondition = FluidState::FreeSurface;
+					pi.boundaryCondition = FluidState::Inner;
 				}
-
-			} else {
-				pi.boundaryCondition = FluidState::Inner;
 			}
 		}
+	}
+
+	bool isFreeSurface(const Particle& pi) {
+		double n0   = refValues.n0_forNumberDensity;
+		double beta = settings.surfaceDetectionRatio;
+		bool flag;
+
+		// original MPS
+		if (pi.numberDensity < beta * n0) {
+			flag = true;
+		} else {
+			flag = false;
+		}
+
+		// based on particle distribution
+		if (flag && settings.freeSurfaceDetectionBasedOnParticleDistribution) {
+			if (!isParticleDistributionBiased(pi)) {
+				flag = false;
+			}
+		}
+
+		return flag;
 	}
 
 	bool isParticleDistributionBiased(const Particle& pi) {
